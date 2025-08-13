@@ -1,5 +1,6 @@
 import sys
 import random
+import argparse
 import pygame
 from typing import List, Tuple
 
@@ -17,15 +18,7 @@ STATUS_BAR_HEIGHT: int = 28
 FOOTER_BAR_HEIGHT: int = 28
 FPS: int = 60
 
-# Window dimensions provide margins and reserved bars
-WINDOW_WIDTH: int = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
-WINDOW_HEIGHT: int = (
-    V_PADDING * 2
-    + STATUS_BAR_HEIGHT
-    + FOOTER_BAR_HEIGHT
-    + ROWS * TILE_SIZE
-    + GRID_LINE
-)
+# Window dimensions computed at runtime from current settings
 
 # Colors
 COLOR_BG = (20, 20, 20)
@@ -215,8 +208,36 @@ def reveal_cell(r: int, c: int, mine_grid: MineGrid, adjacency_grid: AdjacencyGr
 
 
 def main() -> None:
+    # Declare globals first since we both read and assign them below
+    global ROWS, COLUMNS, NUM_MINES, TILE_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT
+
+    parser = argparse.ArgumentParser(description="Minesweeper (Python + Pygame)")
+    parser.add_argument("--rows", type=int, default=ROWS, help="Number of rows (default: 8)")
+    parser.add_argument("--cols", type=int, default=COLUMNS, help="Number of columns (default: 6)")
+    parser.add_argument("--mines", type=int, default=NUM_MINES, help="Number of mines (default: 7)")
+    parser.add_argument("--tile-size", type=int, default=TILE_SIZE, help="Tile size in pixels (default: 48)")
+    args = parser.parse_args()
+
+    # Update globals from CLI
+    ROWS = max(1, args.rows)
+    COLUMNS = max(1, args.cols)
+    TILE_SIZE = max(12, args.tile_size)
+    max_mines = ROWS * COLUMNS - 1
+    NUM_MINES = max(1, min(args.mines, max_mines))
+
+    # Compute window dimensions at runtime and expose as globals for rendering helpers
+    global WINDOW_WIDTH, WINDOW_HEIGHT
+    WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
+    WINDOW_HEIGHT = (
+        V_PADDING * 2
+        + STATUS_BAR_HEIGHT
+        + FOOTER_BAR_HEIGHT
+        + ROWS * TILE_SIZE
+        + GRID_LINE
+    )
+
     pygame.init()
-    pygame.display.set_caption("Minesweeper (6x8, 7 mines)")
+    pygame.display.set_caption(f"Minesweeper ({COLUMNS}x{ROWS}, {NUM_MINES} mines)")
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 24)
