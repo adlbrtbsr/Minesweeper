@@ -343,6 +343,57 @@ def pixel_to_cell(x: int, y: int) -> Tuple[int, int] | None:
     return None
 
 
+def draw_bomb_icon(screen: pygame.Surface, rect: pygame.Rect) -> None:
+    radius = max(6, min(rect.width, rect.height) // 3)
+    center_x, center_y = rect.center
+    # Body
+    pygame.draw.circle(screen, (25, 25, 25), (center_x, center_y), radius)
+    # Highlight
+    highlight_radius = max(2, radius // 3)
+    pygame.draw.circle(screen, (80, 80, 80), (center_x - radius // 3, center_y - radius // 3), highlight_radius)
+    # Neck
+    neck_w = max(2, radius // 3)
+    neck_h = max(3, radius // 2)
+    neck_rect = pygame.Rect(0, 0, neck_w, neck_h)
+    neck_rect.centerx = center_x + radius // 2
+    neck_rect.bottom = center_y - radius // 2
+    pygame.draw.rect(screen, (90, 90, 90), neck_rect, border_radius=2)
+    # Fuse
+    fuse_start = (neck_rect.centerx, neck_rect.top)
+    fuse_len = max(6, radius // 2)
+    fuse_end = (fuse_start[0] + fuse_len, fuse_start[1] - fuse_len)
+    pygame.draw.line(screen, (170, 140, 100), fuse_start, fuse_end, width=max(2, radius // 6))
+    # Spark
+    spark_r = max(3, radius // 3)
+    cx, cy = fuse_end
+    for angle in range(0, 360, 45):
+        vec = pygame.math.Vector2(1, 0).rotate(angle)
+        dx = int(vec.x * spark_r * 1.6)
+        dy = int(vec.y * spark_r * 1.6)
+        pygame.draw.line(screen, (255, 190, 60), (cx, cy), (cx + dx, cy + dy), width=2)
+    pygame.draw.circle(screen, (255, 230, 140), (cx, cy), spark_r)
+
+
+def draw_watermelon_icon(screen: pygame.Surface, rect: pygame.Rect) -> None:
+    center_x, center_y = rect.center
+    radius = max(6, min(rect.width, rect.height) // 3)
+    rind_thickness = max(2, radius // 5)
+    # Outer rind
+    pygame.draw.circle(screen, (24, 120, 44), (center_x, center_y), radius)
+    # Inner rind
+    pygame.draw.circle(screen, (140, 210, 140), (center_x, center_y), radius - rind_thickness)
+    # Flesh
+    flesh_r = max(2, radius - rind_thickness * 2)
+    pygame.draw.circle(screen, (230, 70, 90), (center_x, center_y), flesh_r)
+    # Seeds
+    seed_count = max(5, radius)
+    for i in range(seed_count):
+        vec = pygame.math.Vector2(1, 0).rotate(i * (360 / seed_count))
+        sx = int(center_x + vec.x * (flesh_r * 0.6))
+        sy = int(center_y + vec.y * (flesh_r * 0.6))
+        pygame.draw.circle(screen, (15, 15, 15), (sx, sy), max(1, radius // 8))
+
+
 def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGrid,
                adjacency_grid: AdjacencyGrid, revealed: RevealedGrid, flagged: FlagGrid,
                game_state: str, remaining_safe: int, elapsed_seconds: int) -> None:
@@ -377,10 +428,7 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
             if revealed[r][c]:
                 if mine_grid[r][c]:
                     pygame.draw.rect(screen, COLOR_TILE_MINE, rect)
-                    # draw mine circle
-                    center = rect.center
-                    radius = min(rect.width, rect.height) // 4
-                    pygame.draw.circle(screen, (30, 30, 30), center, radius)
+                    draw_bomb_icon(screen, rect)
                 else:
                     pygame.draw.rect(screen, COLOR_TILE_REVEALED, rect)
                     adj = adjacency_grid[r][c]
@@ -392,11 +440,7 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
             else:
                 pygame.draw.rect(screen, COLOR_TILE_HIDDEN, rect)
                 if flagged[r][c]:
-                    # draw a simple flag triangle
-                    p1 = (rect.left + rect.width // 3, rect.top + rect.height // 5)
-                    p2 = (rect.left + rect.width // 3, rect.bottom - rect.height // 5)
-                    p3 = (rect.right - rect.width // 5, rect.top + rect.height // 2)
-                    pygame.draw.polygon(screen, COLOR_FLAG, [p1, p2, p3])
+                    draw_watermelon_icon(screen, rect)
 
     # Border around grid
     grid_rect = pygame.Rect(H_PADDING, grid_top, COLUMNS * TILE_SIZE, ROWS * TILE_SIZE)
