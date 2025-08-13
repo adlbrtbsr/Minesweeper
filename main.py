@@ -19,6 +19,7 @@ V_PADDING: int = 16
 STATUS_BAR_HEIGHT: int = 28
 FOOTER_BAR_HEIGHT: int = 28
 FPS: int = 60
+DEBUG: bool = False
 
 # Window dimensions computed at runtime from current settings
 
@@ -109,6 +110,68 @@ def show_error_screen(summary: str) -> None:
         # Last resort: print to stderr
         print("Error screen could not be displayed.", file=sys.stderr)
         return
+
+
+def log_event(message: str) -> None:
+    if not DEBUG:
+        return
+    try:
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        with open("run.log", "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception:
+        pass
+
+
+def get_quit_confirm_rects() -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
+    overlay_width = min(420, WINDOW_WIDTH - 40)
+    overlay_height = 150
+    overlay_x = (WINDOW_WIDTH - overlay_width) // 2
+    overlay_y = (WINDOW_HEIGHT - overlay_height) // 2
+    overlay_rect = pygame.Rect(overlay_x, overlay_y, overlay_width, overlay_height)
+
+    button_width = 100
+    button_height = 36
+    gap = 20
+    yes_rect = pygame.Rect(
+        overlay_rect.centerx - gap // 2 - button_width,
+        overlay_rect.bottom - 56,
+        button_width,
+        button_height,
+    )
+    no_rect = pygame.Rect(
+        overlay_rect.centerx + gap // 2,
+        overlay_rect.bottom - 56,
+        button_width,
+        button_height,
+    )
+    return yes_rect, no_rect, overlay_rect
+
+
+def draw_quit_confirm(screen: pygame.Surface, font: pygame.font.Font) -> None:
+    yes_rect, no_rect, overlay_rect = get_quit_confirm_rects()
+    # Dim background
+    dim = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    dim.fill((0, 0, 0, 140))
+    screen.blit(dim, (0, 0))
+
+    # Panel
+    pygame.draw.rect(screen, (50, 50, 50), overlay_rect, border_radius=8)
+    pygame.draw.rect(screen, (90, 90, 90), overlay_rect, width=2, border_radius=8)
+
+    msg1 = font.render("Quit the game?", True, (230, 230, 230))
+    msg2 = font.render("Y = Yes, N/Esc = No", True, (180, 180, 180))
+    screen.blit(msg1, (overlay_rect.centerx - msg1.get_width() // 2, overlay_rect.top + 24))
+    screen.blit(msg2, (overlay_rect.centerx - msg2.get_width() // 2, overlay_rect.top + 56))
+
+    # Buttons
+    def draw_btn(rect: pygame.Rect, label: str):
+        pygame.draw.rect(screen, (70, 70, 70), rect, border_radius=6)
+        t = font.render(label, True, (230, 230, 230))
+        screen.blit(t, (rect.centerx - t.get_width() // 2, rect.centery - t.get_height() // 2))
+
+    draw_btn(yes_rect, "Yes")
+    draw_btn(no_rect, "No")
 
 def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
     menu_width = 520
@@ -443,6 +506,7 @@ def main() -> None:
     parser.add_argument("--cols", type=int, default=COLUMNS, help="Number of columns (default: 6)")
     parser.add_argument("--mines", type=int, default=NUM_MINES, help="Number of mines (default: 7)")
     parser.add_argument("--tile-size", type=int, default=TILE_SIZE, help="Tile size in pixels (default: 48)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging to run.log")
     args = parser.parse_args()
 
     # Update globals from CLI
@@ -451,6 +515,8 @@ def main() -> None:
     TILE_SIZE = max(12, args.tile_size)
     max_mines = ROWS * COLUMNS - 1
     NUM_MINES = max(1, min(args.mines, max_mines))
+    global DEBUG
+    DEBUG = bool(args.debug)
 
     # Compute window dimensions at runtime and expose as globals for rendering helpers
     global WINDOW_WIDTH, WINDOW_HEIGHT
@@ -516,16 +582,45 @@ def main() -> None:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit(0)
+                log_event("QUIT event received")
+                # Ask for confirmation if enabled
+                confirming = True
+                while confirming:
+                    for ev in pygame.event.get():
+                        if ev.type == pygame.QUIT:
+                            confirming = False
+                            pygame.quit()
+                            return
+                        if ev.type == pygame.KEYDOWN:
+                            if ev.key in (pygame.K_ESCAPE, pygame.K_n):
+                                confirming = False
+                            elif ev.key in (pygame.K_y, pygame.K_RETURN):
+                                pygame.quit()
+                                return
+                        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                            mx, my = ev.pos
+                            yes_rect, no_rect, _ = get_quit_confirm_rects()
+                            if yes_rect.collidepoint(mx, my):
+                                pygame.quit()
+                                return
+                            if no_rect.collidepoint(mx, my):
+                                confirming = False
+                    # Draw confirmation overlay
+                    draw_board(screen, font, mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, elapsed_seconds)
+                    draw_quit_confirm(screen, font)
+                    pygame.display.flip()
+                    clock.tick(30)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                log_event("Key R pressed: reset")
                 mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 # Return to menu, reconfigure grid, then reset game state
+                log_event("Key M pressed: open menu")
                 menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
                 if menu_result is None:
+                    log_event("Menu returned None (Quit)")
                     pygame.quit()
-                    sys.exit(0)
+                    return
                 ROWS, COLUMNS, NUM_MINES = menu_result
                 WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
                 WINDOW_HEIGHT = (
@@ -543,6 +638,7 @@ def main() -> None:
                 if cell is None:
                     continue
                 r, c = cell
+                log_event(f"Mouse button {event.button} on cell ({r},{c})")
                 # Middle click (button 2) or chord (left+right) to auto-reveal neighbors
                 if event.button == 2:
                     # Chording should not start the timer unless it reveals something
