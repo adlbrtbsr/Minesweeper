@@ -122,6 +122,57 @@ def log_event(message: str) -> None:
     except Exception:
         pass
 
+
+def get_quit_confirm_rects() -> tuple[pygame.Rect, pygame.Rect, pygame.Rect]:
+    overlay_width = min(420, WINDOW_WIDTH - 40)
+    overlay_height = 150
+    overlay_x = (WINDOW_WIDTH - overlay_width) // 2
+    overlay_y = (WINDOW_HEIGHT - overlay_height) // 2
+    overlay_rect = pygame.Rect(overlay_x, overlay_y, overlay_width, overlay_height)
+
+    button_width = 100
+    button_height = 36
+    gap = 20
+    yes_rect = pygame.Rect(
+        overlay_rect.centerx - gap // 2 - button_width,
+        overlay_rect.bottom - 56,
+        button_width,
+        button_height,
+    )
+    no_rect = pygame.Rect(
+        overlay_rect.centerx + gap // 2,
+        overlay_rect.bottom - 56,
+        button_width,
+        button_height,
+    )
+    return yes_rect, no_rect, overlay_rect
+
+
+def draw_quit_confirm(screen: pygame.Surface, font: pygame.font.Font) -> None:
+    yes_rect, no_rect, overlay_rect = get_quit_confirm_rects()
+    # Dim background
+    dim = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
+    dim.fill((0, 0, 0, 140))
+    screen.blit(dim, (0, 0))
+
+    # Panel
+    pygame.draw.rect(screen, (50, 50, 50), overlay_rect, border_radius=8)
+    pygame.draw.rect(screen, (90, 90, 90), overlay_rect, width=2, border_radius=8)
+
+    msg1 = font.render("Quit the game?", True, (230, 230, 230))
+    msg2 = font.render("Y = Yes, N/Esc = No", True, (180, 180, 180))
+    screen.blit(msg1, (overlay_rect.centerx - msg1.get_width() // 2, overlay_rect.top + 24))
+    screen.blit(msg2, (overlay_rect.centerx - msg2.get_width() // 2, overlay_rect.top + 56))
+
+    # Buttons
+    def draw_btn(rect: pygame.Rect, label: str):
+        pygame.draw.rect(screen, (70, 70, 70), rect, border_radius=6)
+        t = font.render(label, True, (230, 230, 230))
+        screen.blit(t, (rect.centerx - t.get_width() // 2, rect.centery - t.get_height() // 2))
+
+    draw_btn(yes_rect, "Yes")
+    draw_btn(no_rect, "No")
+
 def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
     menu_width = 520
     menu_height = 400
@@ -532,8 +583,33 @@ def main() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 log_event("QUIT event received")
-                pygame.quit()
-                return
+                # Ask for confirmation if enabled
+                confirming = True
+                while confirming:
+                    for ev in pygame.event.get():
+                        if ev.type == pygame.QUIT:
+                            confirming = False
+                            pygame.quit()
+                            return
+                        if ev.type == pygame.KEYDOWN:
+                            if ev.key in (pygame.K_ESCAPE, pygame.K_n):
+                                confirming = False
+                            elif ev.key in (pygame.K_y, pygame.K_RETURN):
+                                pygame.quit()
+                                return
+                        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                            mx, my = ev.pos
+                            yes_rect, no_rect, _ = get_quit_confirm_rects()
+                            if yes_rect.collidepoint(mx, my):
+                                pygame.quit()
+                                return
+                            if no_rect.collidepoint(mx, my):
+                                confirming = False
+                    # Draw confirmation overlay
+                    draw_board(screen, font, mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, elapsed_seconds)
+                    draw_quit_confirm(screen, font)
+                    pygame.display.flip()
+                    clock.tick(30)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 log_event("Key R pressed: reset")
                 mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
