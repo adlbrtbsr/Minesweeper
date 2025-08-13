@@ -314,6 +314,45 @@ def reveal_cell(r: int, c: int, mine_grid: MineGrid, adjacency_grid: AdjacencyGr
     return False, newly_revealed
 
 
+def chord_reveal(r: int, c: int, mine_grid: MineGrid, adjacency_grid: AdjacencyGrid,
+                 revealed: RevealedGrid, flagged: FlagGrid) -> Tuple[bool, int]:
+    """
+    If the number of flagged neighbors equals the number on a revealed numbered tile,
+    reveal all unflagged, unrevealed neighbors. Returns (hit_mine, total_opened).
+    """
+    if not revealed[r][c]:
+        return False, 0
+    number_on_tile = adjacency_grid[r][c]
+    if number_on_tile <= 0:
+        return False, 0
+
+    # Count flags around
+    flagged_count = 0
+    neighbors_coords: list[tuple[int, int]] = []
+    for dr in (-1, 0, 1):
+        for dc in (-1, 0, 1):
+            if dr == 0 and dc == 0:
+                continue
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < ROWS and 0 <= nc < COLUMNS:
+                neighbors_coords.append((nr, nc))
+                if flagged[nr][nc]:
+                    flagged_count += 1
+
+    if flagged_count != number_on_tile:
+        return False, 0
+
+    total_opened = 0
+    for nr, nc in neighbors_coords:
+        if not flagged[nr][nc] and not revealed[nr][nc]:
+            hit_mine, opened = reveal_cell(nr, nc, mine_grid, adjacency_grid, revealed, flagged)
+            total_opened += opened
+            if hit_mine:
+                return True, total_opened
+
+    return False, total_opened
+
+
 def main() -> None:
     # Declare globals first since we both read and assign them below
     global ROWS, COLUMNS, NUM_MINES, TILE_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT
@@ -405,7 +444,49 @@ def main() -> None:
                 if cell is None:
                     continue
                 r, c = cell
-                if event.button == 1:  # left click to reveal
+                # Middle click (button 2) or chord (left+right) to auto-reveal neighbors
+                if event.button == 2:
+                    # Chording should not start the timer unless it reveals something
+                    hit_mine, opened = chord_reveal(r, c, mine_grid, adjacency_grid, revealed, flagged)
+                    if opened > 0 and start_ticks is None:
+                        start_ticks = pygame.time.get_ticks()
+                    if hit_mine:
+                        game_state = "lost"
+                        if start_ticks is not None and end_ticks is None:
+                            end_ticks = pygame.time.get_ticks()
+                        for rr in range(ROWS):
+                            for cc in range(COLUMNS):
+                                if mine_grid[rr][cc]:
+                                    revealed[rr][cc] = True
+                    else:
+                        remaining_safe -= opened
+                        if remaining_safe == 0:
+                            game_state = "won"
+                            if start_ticks is not None and end_ticks is None:
+                                end_ticks = pygame.time.get_ticks()
+                elif event.button == 1:  # left click to reveal or chord if right also held
+                    # If both buttons are pressed and clicking a revealed number, treat as chord
+                    pressed = pygame.mouse.get_pressed(3)
+                    if pressed[2] and revealed[r][c] and adjacency_grid[r][c] > 0:
+                        hit_mine, opened = chord_reveal(r, c, mine_grid, adjacency_grid, revealed, flagged)
+                        if opened > 0 and start_ticks is None:
+                            start_ticks = pygame.time.get_ticks()
+                        if hit_mine:
+                            game_state = "lost"
+                            if start_ticks is not None and end_ticks is None:
+                                end_ticks = pygame.time.get_ticks()
+                            for rr in range(ROWS):
+                                for cc in range(COLUMNS):
+                                    if mine_grid[rr][cc]:
+                                        revealed[rr][cc] = True
+                        else:
+                            remaining_safe -= opened
+                            if remaining_safe == 0:
+                                game_state = "won"
+                                if start_ticks is not None and end_ticks is None:
+                                    end_ticks = pygame.time.get_ticks()
+                        continue
+                    # First-click safety: ensure the first revealed cell is safe
                     # First-click safety: ensure the first revealed cell is safe
                     if is_first_click and not revealed[r][c]:
                         is_first_click = False
