@@ -50,9 +50,16 @@ RevealedGrid = List[List[bool]]
 FlagGrid = List[List[bool]]
 
 
-def create_mine_grid(rows: int, columns: int, num_mines: int) -> MineGrid:
+def create_mine_grid(rows: int, columns: int, num_mines: int,
+                     exclude: set[tuple[int, int]] | None = None) -> MineGrid:
     all_positions = [(r, c) for r in range(rows) for c in range(columns)]
-    mine_positions = set(random.sample(all_positions, num_mines))
+    if exclude:
+        available = [pos for pos in all_positions if pos not in exclude]
+    else:
+        available = all_positions
+    if num_mines > len(available):
+        raise ValueError("Number of mines exceeds available cells when applying exclusions")
+    mine_positions = set(random.sample(available, num_mines))
     return [[(r, c) in mine_positions for c in range(columns)] for r in range(rows)]
 
 
@@ -242,13 +249,14 @@ def main() -> None:
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 24)
 
-    def reset() -> tuple[MineGrid, AdjacencyGrid, RevealedGrid, FlagGrid, str, int]:
+    def reset() -> tuple[MineGrid, AdjacencyGrid, RevealedGrid, FlagGrid, str, int, bool]:
         mine_grid_local = create_mine_grid(ROWS, COLUMNS, NUM_MINES)
         adjacency_local = calc_adjacency(mine_grid_local)
         revealed_local = [[False for _ in range(COLUMNS)] for _ in range(ROWS)]
         flagged_local = [[False for _ in range(COLUMNS)] for _ in range(ROWS)]
         game_state_local = "running"  # running | won | lost
         remaining_safe_local = ROWS * COLUMNS - NUM_MINES
+        is_first_click_local = True
         return (
             mine_grid_local,
             adjacency_local,
@@ -256,9 +264,10 @@ def main() -> None:
             flagged_local,
             game_state_local,
             remaining_safe_local,
+            is_first_click_local,
         )
 
-    mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe = reset()
+    mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click = reset()
 
     while True:
         clock.tick(FPS)
@@ -267,13 +276,19 @@ def main() -> None:
                 pygame.quit()
                 sys.exit(0)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe = reset()
+                mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click = reset()
             if game_state == "running" and event.type == pygame.MOUSEBUTTONDOWN:
                 cell = pixel_to_cell(*event.pos)
                 if cell is None:
                     continue
                 r, c = cell
                 if event.button == 1:  # left click to reveal
+                    # First-click safety: ensure the first revealed cell is safe
+                    if is_first_click and not revealed[r][c]:
+                        is_first_click = False
+                        mine_grid = create_mine_grid(ROWS, COLUMNS, NUM_MINES, exclude={(r, c)})
+                        adjacency_grid = calc_adjacency(mine_grid)
+
                     hit_mine, opened = reveal_cell(r, c, mine_grid, adjacency_grid, revealed, flagged)
                     if hit_mine:
                         game_state = "lost"
