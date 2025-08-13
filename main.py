@@ -50,6 +50,95 @@ RevealedGrid = List[List[bool]]
 FlagGrid = List[List[bool]]
 
 
+def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
+    menu_width = 520
+    menu_height = 320
+    pygame.display.set_caption("Minesweeper - Setup")
+    screen = pygame.display.set_mode((menu_width, menu_height))
+    clock = pygame.time.Clock()
+    font = pygame.font.SysFont(None, 28)
+
+    rows = max(1, initial_rows)
+    cols = max(1, initial_cols)
+    mines = max(1, min(initial_mines, rows * cols - 1))
+
+    def draw_button(rect: pygame.Rect, label: str, active: bool = True):
+        color = (70, 70, 70) if active else (40, 40, 40)
+        pygame.draw.rect(screen, color, rect, border_radius=6)
+        text = font.render(label, True, (230, 230, 230))
+        text_rect = text.get_rect(center=rect.center)
+        screen.blit(text, text_rect)
+
+    while True:
+        clock.tick(60)
+        screen.fill(COLOR_BG)
+
+        title = font.render("Choose grid and mines", True, COLOR_STATUS)
+        screen.blit(title, (H_PADDING, V_PADDING))
+
+        # Layout values and +/- buttons
+        y0 = 80
+        row_label = font.render(f"Rows: {rows}", True, COLOR_STATUS)
+        col_label = font.render(f"Cols: {cols}", True, COLOR_STATUS)
+        max_mines = max(1, rows * cols - 1)
+        mines = min(mines, max_mines)
+        mine_label = font.render(f"Mines: {mines} (max {max_mines})", True, COLOR_STATUS)
+
+        screen.blit(row_label, (H_PADDING, y0))
+        screen.blit(col_label, (H_PADDING, y0 + 50))
+        screen.blit(mine_label, (H_PADDING, y0 + 100))
+
+        btn_w, btn_h = 40, 36
+        gap_x = 10
+        base_x = 300
+
+        rows_minus = pygame.Rect(base_x, y0 - 6, btn_w, btn_h)
+        rows_plus = pygame.Rect(base_x + btn_w + gap_x, y0 - 6, btn_w, btn_h)
+        cols_minus = pygame.Rect(base_x, y0 + 44, btn_w, btn_h)
+        cols_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 44, btn_w, btn_h)
+        mines_minus = pygame.Rect(base_x, y0 + 94, btn_w, btn_h)
+        mines_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 94, btn_w, btn_h)
+
+        draw_button(rows_minus, "-")
+        draw_button(rows_plus, "+")
+        draw_button(cols_minus, "-")
+        draw_button(cols_plus, "+")
+        draw_button(mines_minus, "-")
+        draw_button(mines_plus, "+")
+
+        start_rect = pygame.Rect(H_PADDING, menu_height - 70, 140, 42)
+        quit_rect = pygame.Rect(H_PADDING + 160, menu_height - 70, 140, 42)
+        draw_button(start_rect, "Start")
+        draw_button(quit_rect, "Quit")
+
+        hint = font.render("Tip: adjust mines after grid", True, (150, 150, 150))
+        screen.blit(hint, (H_PADDING, menu_height - 110))
+
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                if rows_minus.collidepoint(mx, my):
+                    rows = max(1, rows - 1)
+                elif rows_plus.collidepoint(mx, my):
+                    rows = rows + 1
+                elif cols_minus.collidepoint(mx, my):
+                    cols = max(1, cols - 1)
+                elif cols_plus.collidepoint(mx, my):
+                    cols = cols + 1
+                elif mines_minus.collidepoint(mx, my):
+                    mines = max(1, mines - 1)
+                elif mines_plus.collidepoint(mx, my):
+                    mines = min(rows * cols - 1, mines + 1)
+                elif start_rect.collidepoint(mx, my):
+                    mines = max(1, min(mines, rows * cols - 1))
+                    return rows, cols, mines
+                elif quit_rect.collidepoint(mx, my):
+                    return None
+
 def create_mine_grid(rows: int, columns: int, num_mines: int,
                      exclude: set[tuple[int, int]] | None = None) -> MineGrid:
     all_positions = [(r, c) for r in range(rows) for c in range(columns)]
@@ -255,6 +344,25 @@ def main() -> None:
     )
 
     pygame.init()
+
+    # Optional pre-game menu if no CLI overrides were provided
+    if (args.rows == 8 and args.cols == 6 and args.mines == 7 and args.tile_size == 48):
+        menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
+        if menu_result is None:
+            pygame.quit()
+            sys.exit(0)
+        ROWS, COLUMNS, NUM_MINES = menu_result
+
+        # Recompute dimensions with new selections
+        WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
+        WINDOW_HEIGHT = (
+            V_PADDING * 2
+            + STATUS_BAR_HEIGHT
+            + FOOTER_BAR_HEIGHT
+            + ROWS * TILE_SIZE
+            + GRID_LINE
+        )
+
     pygame.display.set_caption(f"Minesweeper ({COLUMNS}x{ROWS}, {NUM_MINES} mines)")
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     clock = pygame.time.Clock()
