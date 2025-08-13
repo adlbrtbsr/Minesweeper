@@ -19,6 +19,7 @@ V_PADDING: int = 16
 STATUS_BAR_HEIGHT: int = 28
 FOOTER_BAR_HEIGHT: int = 28
 FPS: int = 60
+DEBUG: bool = False
 
 # Window dimensions computed at runtime from current settings
 
@@ -109,6 +110,17 @@ def show_error_screen(summary: str) -> None:
         # Last resort: print to stderr
         print("Error screen could not be displayed.", file=sys.stderr)
         return
+
+
+def log_event(message: str) -> None:
+    if not DEBUG:
+        return
+    try:
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        with open("run.log", "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception:
+        pass
 
 def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
     menu_width = 520
@@ -443,6 +455,7 @@ def main() -> None:
     parser.add_argument("--cols", type=int, default=COLUMNS, help="Number of columns (default: 6)")
     parser.add_argument("--mines", type=int, default=NUM_MINES, help="Number of mines (default: 7)")
     parser.add_argument("--tile-size", type=int, default=TILE_SIZE, help="Tile size in pixels (default: 48)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging to run.log")
     args = parser.parse_args()
 
     # Update globals from CLI
@@ -451,6 +464,8 @@ def main() -> None:
     TILE_SIZE = max(12, args.tile_size)
     max_mines = ROWS * COLUMNS - 1
     NUM_MINES = max(1, min(args.mines, max_mines))
+    global DEBUG
+    DEBUG = bool(args.debug)
 
     # Compute window dimensions at runtime and expose as globals for rendering helpers
     global WINDOW_WIDTH, WINDOW_HEIGHT
@@ -516,16 +531,20 @@ def main() -> None:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                log_event("QUIT event received")
                 pygame.quit()
-                sys.exit(0)
+                return
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                log_event("Key R pressed: reset")
                 mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 # Return to menu, reconfigure grid, then reset game state
+                log_event("Key M pressed: open menu")
                 menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
                 if menu_result is None:
+                    log_event("Menu returned None (Quit)")
                     pygame.quit()
-                    sys.exit(0)
+                    return
                 ROWS, COLUMNS, NUM_MINES = menu_result
                 WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
                 WINDOW_HEIGHT = (
@@ -543,6 +562,7 @@ def main() -> None:
                 if cell is None:
                     continue
                 r, c = cell
+                log_event(f"Mouse button {event.button} on cell ({r},{c})")
                 # Middle click (button 2) or chord (left+right) to auto-reveal neighbors
                 if event.button == 2:
                     # Chording should not start the timer unless it reveals something
