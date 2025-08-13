@@ -24,7 +24,7 @@ STATUS_FONT_BASE: int = 28
 
 # Grid constraints
 MIN_ROWS: int = 6
-MAX_ROWS: int = 20
+MAX_ROWS: int = 16
 MIN_COLS: int = 6
 MAX_COLS: int = 20
 
