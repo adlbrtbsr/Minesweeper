@@ -112,7 +112,7 @@ def pixel_to_cell(x: int, y: int) -> Tuple[int, int] | None:
 
 def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGrid,
                adjacency_grid: AdjacencyGrid, revealed: RevealedGrid, flagged: FlagGrid,
-               game_state: str, remaining_safe: int) -> None:
+               game_state: str, remaining_safe: int, elapsed_seconds: int) -> None:
     screen.fill(COLOR_BG)
 
     # Status text
@@ -170,7 +170,12 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
     pygame.draw.rect(screen, COLOR_GRID, grid_rect, width=2)
 
     # Footer info
-    footer_text = f"Safe tiles remaining: {remaining_safe}"
+    def format_time(total_seconds: int) -> str:
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        return f"{minutes}:{seconds:02d}"
+
+    footer_text = f"Time: {format_time(elapsed_seconds)}    Safe: {remaining_safe}"
     if game_state == "won":
         footer_color = COLOR_WIN
     elif game_state == "lost":
@@ -255,7 +260,7 @@ def main() -> None:
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 24)
 
-    def reset() -> tuple[MineGrid, AdjacencyGrid, RevealedGrid, FlagGrid, str, int, bool]:
+    def reset() -> tuple[MineGrid, AdjacencyGrid, RevealedGrid, FlagGrid, str, int, bool, int | None, int | None]:
         mine_grid_local = create_mine_grid(ROWS, COLUMNS, NUM_MINES)
         adjacency_local = calc_adjacency(mine_grid_local)
         revealed_local = [[False for _ in range(COLUMNS)] for _ in range(ROWS)]
@@ -263,6 +268,8 @@ def main() -> None:
         game_state_local = "running"  # running | won | lost
         remaining_safe_local = ROWS * COLUMNS - NUM_MINES
         is_first_click_local = True
+        start_ticks_local: int | None = None
+        end_ticks_local: int | None = None
         return (
             mine_grid_local,
             adjacency_local,
@@ -271,9 +278,11 @@ def main() -> None:
             game_state_local,
             remaining_safe_local,
             is_first_click_local,
+            start_ticks_local,
+            end_ticks_local,
         )
 
-    mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click = reset()
+    mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
 
     while True:
         clock.tick(FPS)
@@ -282,7 +291,7 @@ def main() -> None:
                 pygame.quit()
                 sys.exit(0)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click = reset()
+                mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
             if game_state == "running" and event.type == pygame.MOUSEBUTTONDOWN:
                 cell = pixel_to_cell(*event.pos)
                 if cell is None:
@@ -294,10 +303,17 @@ def main() -> None:
                         is_first_click = False
                         mine_grid = create_mine_grid(ROWS, COLUMNS, NUM_MINES, exclude={(r, c)})
                         adjacency_grid = calc_adjacency(mine_grid)
+                        if start_ticks is None:
+                            start_ticks = pygame.time.get_ticks()
+                    elif start_ticks is None and not revealed[r][c]:
+                        # Start timer on the first actual reveal even if first-click already passed (edge cases)
+                        start_ticks = pygame.time.get_ticks()
 
                     hit_mine, opened = reveal_cell(r, c, mine_grid, adjacency_grid, revealed, flagged)
                     if hit_mine:
                         game_state = "lost"
+                        if start_ticks is not None and end_ticks is None:
+                            end_ticks = pygame.time.get_ticks()
                         # Reveal all mines for feedback
                         for rr in range(ROWS):
                             for cc in range(COLUMNS):
@@ -307,11 +323,23 @@ def main() -> None:
                         remaining_safe -= opened
                         if remaining_safe == 0:
                             game_state = "won"
+                            if start_ticks is not None and end_ticks is None:
+                                end_ticks = pygame.time.get_ticks()
                 elif event.button == 3:  # right click to toggle flag
                     if not revealed[r][c]:
                         flagged[r][c] = not flagged[r][c]
 
-        draw_board(screen, font, mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe)
+        # Compute elapsed time in seconds; freeze when game is over
+        if start_ticks is None:
+            elapsed_seconds = 0
+        else:
+            now_ticks = pygame.time.get_ticks()
+            if game_state == "running" or end_ticks is None:
+                elapsed_seconds = max(0, (now_ticks - start_ticks) // 1000)
+            else:
+                elapsed_seconds = max(0, (end_ticks - start_ticks) // 1000)
+
+        draw_board(screen, font, mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, elapsed_seconds)
         pygame.display.flip()
 
 
