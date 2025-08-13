@@ -1,0 +1,26 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Tools and IDEs
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+
+# Test / coverage
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
