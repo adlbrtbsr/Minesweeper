@@ -269,13 +269,13 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
         # Remaining mines: total mines minus placed flags
         flags_placed = sum(1 for r in range(ROWS) for c in range(COLUMNS) if flagged[r][c])
         remaining_mines = max(0, NUM_MINES - flags_placed)
-        status_text = f"Mines: {remaining_mines}    L: reveal   R: flag"
+        status_text = f"Mines: {remaining_mines}    L: reveal   R: flag   Mid: chord   M: menu"
     else:
         status_text = "L: reveal   R: flag"
     if game_state == "lost":
-        status_text = "You hit a mine. Press R to restart."
+        status_text = "You hit a mine. Press R to restart, M for menu."
     elif game_state == "won":
-        status_text = "You won! Press R to restart."
+        status_text = "You won! Press R to restart, M for menu."
 
     status_surface = font.render(status_text, True, COLOR_STATUS)
     screen.blit(status_surface, (H_PADDING, V_PADDING))
@@ -498,6 +498,24 @@ def main() -> None:
                 pygame.quit()
                 sys.exit(0)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                # Return to menu, reconfigure grid, then reset game state
+                menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
+                if menu_result is None:
+                    pygame.quit()
+                    sys.exit(0)
+                ROWS, COLUMNS, NUM_MINES = menu_result
+                WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
+                WINDOW_HEIGHT = (
+                    V_PADDING * 2
+                    + STATUS_BAR_HEIGHT
+                    + FOOTER_BAR_HEIGHT
+                    + ROWS * TILE_SIZE
+                    + GRID_LINE
+                )
+                screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+                pygame.display.set_caption(f"Minesweeper ({COLUMNS}x{ROWS}, {NUM_MINES} mines)")
                 mine_grid, adjacency_grid, revealed, flagged, game_state, remaining_safe, is_first_click, start_ticks, end_ticks = reset()
             if game_state == "running" and event.type == pygame.MOUSEBUTTONDOWN:
                 cell = pixel_to_cell(*event.pos)
