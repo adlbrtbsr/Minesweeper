@@ -173,9 +173,9 @@ def draw_quit_confirm(screen: pygame.Surface, font: pygame.font.Font) -> None:
     draw_btn(yes_rect, "Yes")
     draw_btn(no_rect, "No")
 
-def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
+def run_menu(initial_rows: int, initial_cols: int, initial_mines: int, initial_tile: int) -> tuple[int, int, int, int] | None:
     menu_width = 520
-    menu_height = 400
+    menu_height = 440
     pygame.display.set_caption("Minesweeper - Setup")
     screen = pygame.display.set_mode((menu_width, menu_height))
     clock = pygame.time.Clock()
@@ -184,6 +184,7 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
     rows = max(1, initial_rows)
     cols = max(1, initial_cols)
     mines = max(1, min(initial_mines, rows * cols - 1))
+    tile = max(16, min(96, int(initial_tile)))
 
     def draw_button(rect: pygame.Rect, label: str, active: bool = True):
         color = (70, 70, 70) if active else (40, 40, 40)
@@ -217,10 +218,12 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         max_mines = max(1, rows * cols - 1)
         mines = min(mines, max_mines)
         mine_label = font.render(f"Mines: {mines} (max {max_mines})", True, COLOR_STATUS)
+        tile_label = font.render(f"Tile size: {tile}px", True, COLOR_STATUS)
 
         screen.blit(row_label, (H_PADDING, y0))
         screen.blit(col_label, (H_PADDING, y0 + 50))
         screen.blit(mine_label, (H_PADDING, y0 + 100))
+        screen.blit(tile_label, (H_PADDING, y0 + 150))
 
         btn_w, btn_h = 40, 36
         gap_x = 10
@@ -232,6 +235,8 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         cols_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 44, btn_w, btn_h)
         mines_minus = pygame.Rect(base_x, y0 + 94, btn_w, btn_h)
         mines_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 94, btn_w, btn_h)
+        tile_minus = pygame.Rect(base_x, y0 + 144, btn_w, btn_h)
+        tile_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 144, btn_w, btn_h)
 
         draw_button(rows_minus, "-")
         draw_button(rows_plus, "+")
@@ -239,6 +244,8 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         draw_button(cols_plus, "+")
         draw_button(mines_minus, "-")
         draw_button(mines_plus, "+")
+        draw_button(tile_minus, "-")
+        draw_button(tile_plus, "+")
 
         start_rect = pygame.Rect(H_PADDING, menu_height - 70, 140, 42)
         quit_rect = pygame.Rect(H_PADDING + 160, menu_height - 70, 140, 42)
@@ -277,9 +284,13 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
                     mines = max(1, mines - 1)
                 elif mines_plus.collidepoint(mx, my):
                     mines = min(rows * cols - 1, mines + 1)
+                elif tile_minus.collidepoint(mx, my):
+                    tile = max(16, tile - 4)
+                elif tile_plus.collidepoint(mx, my):
+                    tile = min(96, tile + 4)
                 elif start_rect.collidepoint(mx, my):
                     mines = max(1, min(mines, rows * cols - 1))
-                    return rows, cols, mines
+                    return rows, cols, mines, tile
                 elif quit_rect.collidepoint(mx, my):
                     return None
 
@@ -587,11 +598,11 @@ def main() -> None:
 
     # Optional pre-game menu if no CLI overrides were provided
     if (args.rows == 8 and args.cols == 6 and args.mines == 7 and args.tile_size == 48):
-        menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
+        menu_result = run_menu(ROWS, COLUMNS, NUM_MINES, TILE_SIZE)
         if menu_result is None:
             pygame.quit()
             sys.exit(0)
-        ROWS, COLUMNS, NUM_MINES = menu_result
+        ROWS, COLUMNS, NUM_MINES, TILE_SIZE = menu_result
 
         # Recompute dimensions with new selections
         WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
@@ -670,12 +681,12 @@ def main() -> None:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 # Return to menu, reconfigure grid, then reset game state
                 log_event("Key M pressed: open menu")
-                menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
+                menu_result = run_menu(ROWS, COLUMNS, NUM_MINES, TILE_SIZE)
                 if menu_result is None:
                     log_event("Menu returned None (Quit)")
                     pygame.quit()
                     return
-                ROWS, COLUMNS, NUM_MINES = menu_result
+                ROWS, COLUMNS, NUM_MINES, TILE_SIZE = menu_result
                 WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
                 WINDOW_HEIGHT = (
                     V_PADDING * 2
