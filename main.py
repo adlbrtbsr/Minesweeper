@@ -116,7 +116,13 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
     screen.fill(COLOR_BG)
 
     # Status text
-    status_text = "L: reveal   R: flag"
+    if game_state == "running":
+        # Remaining mines: total mines minus placed flags
+        flags_placed = sum(1 for r in range(ROWS) for c in range(COLUMNS) if flagged[r][c])
+        remaining_mines = max(0, NUM_MINES - flags_placed)
+        status_text = f"Mines: {remaining_mines}    L: reveal   R: flag"
+    else:
+        status_text = "L: reveal   R: flag"
     if game_state == "lost":
         status_text = "You hit a mine. Press R to restart."
     elif game_state == "won":
