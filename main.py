@@ -20,6 +20,7 @@ STATUS_BAR_HEIGHT: int = 28
 FOOTER_BAR_HEIGHT: int = 28
 FPS: int = 60
 DEBUG: bool = False
+STATUS_FONT_BASE: int = 28
 
 # Window dimensions computed at runtime from current settings
 
@@ -173,9 +174,9 @@ def draw_quit_confirm(screen: pygame.Surface, font: pygame.font.Font) -> None:
     draw_btn(yes_rect, "Yes")
     draw_btn(no_rect, "No")
 
-def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
+def run_menu(initial_rows: int, initial_cols: int, initial_mines: int, initial_tile: int) -> tuple[int, int, int, int] | None:
     menu_width = 520
-    menu_height = 400
+    menu_height = 440
     pygame.display.set_caption("Minesweeper - Setup")
     screen = pygame.display.set_mode((menu_width, menu_height))
     clock = pygame.time.Clock()
@@ -184,6 +185,7 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
     rows = max(1, initial_rows)
     cols = max(1, initial_cols)
     mines = max(1, min(initial_mines, rows * cols - 1))
+    tile = max(16, min(96, int(initial_tile)))
 
     def draw_button(rect: pygame.Rect, label: str, active: bool = True):
         color = (70, 70, 70) if active else (40, 40, 40)
@@ -217,10 +219,12 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         max_mines = max(1, rows * cols - 1)
         mines = min(mines, max_mines)
         mine_label = font.render(f"Mines: {mines} (max {max_mines})", True, COLOR_STATUS)
+        tile_label = font.render(f"Tile size: {tile}px", True, COLOR_STATUS)
 
         screen.blit(row_label, (H_PADDING, y0))
         screen.blit(col_label, (H_PADDING, y0 + 50))
         screen.blit(mine_label, (H_PADDING, y0 + 100))
+        screen.blit(tile_label, (H_PADDING, y0 + 150))
 
         btn_w, btn_h = 40, 36
         gap_x = 10
@@ -232,6 +236,8 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         cols_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 44, btn_w, btn_h)
         mines_minus = pygame.Rect(base_x, y0 + 94, btn_w, btn_h)
         mines_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 94, btn_w, btn_h)
+        tile_minus = pygame.Rect(base_x, y0 + 144, btn_w, btn_h)
+        tile_plus = pygame.Rect(base_x + btn_w + gap_x, y0 + 144, btn_w, btn_h)
 
         draw_button(rows_minus, "-")
         draw_button(rows_plus, "+")
@@ -239,6 +245,8 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         draw_button(cols_plus, "+")
         draw_button(mines_minus, "-")
         draw_button(mines_plus, "+")
+        draw_button(tile_minus, "-")
+        draw_button(tile_plus, "+")
 
         start_rect = pygame.Rect(H_PADDING, menu_height - 70, 140, 42)
         quit_rect = pygame.Rect(H_PADDING + 160, menu_height - 70, 140, 42)
@@ -277,9 +285,13 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
                     mines = max(1, mines - 1)
                 elif mines_plus.collidepoint(mx, my):
                     mines = min(rows * cols - 1, mines + 1)
+                elif tile_minus.collidepoint(mx, my):
+                    tile = max(16, tile - 4)
+                elif tile_plus.collidepoint(mx, my):
+                    tile = min(96, tile + 4)
                 elif start_rect.collidepoint(mx, my):
                     mines = max(1, min(mines, rows * cols - 1))
-                    return rows, cols, mines
+                    return rows, cols, mines, tile
                 elif quit_rect.collidepoint(mx, my):
                     return None
 
@@ -343,6 +355,57 @@ def pixel_to_cell(x: int, y: int) -> Tuple[int, int] | None:
     return None
 
 
+def draw_bomb_icon(screen: pygame.Surface, rect: pygame.Rect) -> None:
+    radius = max(6, min(rect.width, rect.height) // 3)
+    center_x, center_y = rect.center
+    # Body
+    pygame.draw.circle(screen, (25, 25, 25), (center_x, center_y), radius)
+    # Highlight
+    highlight_radius = max(2, radius // 3)
+    pygame.draw.circle(screen, (80, 80, 80), (center_x - radius // 3, center_y - radius // 3), highlight_radius)
+    # Neck
+    neck_w = max(2, radius // 3)
+    neck_h = max(3, radius // 2)
+    neck_rect = pygame.Rect(0, 0, neck_w, neck_h)
+    neck_rect.centerx = center_x + radius // 2
+    neck_rect.bottom = center_y - radius // 2
+    pygame.draw.rect(screen, (90, 90, 90), neck_rect, border_radius=2)
+    # Fuse
+    fuse_start = (neck_rect.centerx, neck_rect.top)
+    fuse_len = max(6, radius // 2)
+    fuse_end = (fuse_start[0] + fuse_len, fuse_start[1] - fuse_len)
+    pygame.draw.line(screen, (170, 140, 100), fuse_start, fuse_end, width=max(2, radius // 6))
+    # Spark
+    spark_r = max(3, radius // 3)
+    cx, cy = fuse_end
+    for angle in range(0, 360, 45):
+        vec = pygame.math.Vector2(1, 0).rotate(angle)
+        dx = int(vec.x * spark_r * 1.6)
+        dy = int(vec.y * spark_r * 1.6)
+        pygame.draw.line(screen, (255, 190, 60), (cx, cy), (cx + dx, cy + dy), width=2)
+    pygame.draw.circle(screen, (255, 230, 140), (cx, cy), spark_r)
+
+
+def draw_watermelon_icon(screen: pygame.Surface, rect: pygame.Rect) -> None:
+    center_x, center_y = rect.center
+    radius = max(6, min(rect.width, rect.height) // 3)
+    rind_thickness = max(2, radius // 5)
+    # Outer rind
+    pygame.draw.circle(screen, (24, 120, 44), (center_x, center_y), radius)
+    # Inner rind
+    pygame.draw.circle(screen, (140, 210, 140), (center_x, center_y), radius - rind_thickness)
+    # Flesh
+    flesh_r = max(2, radius - rind_thickness * 2)
+    pygame.draw.circle(screen, (230, 70, 90), (center_x, center_y), flesh_r)
+    # Seeds
+    seed_count = max(5, radius)
+    for i in range(seed_count):
+        vec = pygame.math.Vector2(1, 0).rotate(i * (360 / seed_count))
+        sx = int(center_x + vec.x * (flesh_r * 0.6))
+        sy = int(center_y + vec.y * (flesh_r * 0.6))
+        pygame.draw.circle(screen, (15, 15, 15), (sx, sy), max(1, radius // 8))
+
+
 def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGrid,
                adjacency_grid: AdjacencyGrid, revealed: RevealedGrid, flagged: FlagGrid,
                game_state: str, remaining_safe: int, elapsed_seconds: int) -> None:
@@ -361,7 +424,17 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
     elif game_state == "won":
         status_text = "You won! Press R to restart, M for menu."
 
-    status_surface = font.render(status_text, True, COLOR_STATUS)
+    # Render status text with dynamic downscaling to fit narrow windows
+    available_width = max(50, (globals().get("WINDOW_WIDTH", 0) or screen.get_width()) - 2 * H_PADDING)
+    status_font = pygame.font.SysFont(None, STATUS_FONT_BASE)
+    status_surface = status_font.render(status_text, True, COLOR_STATUS)
+    if status_surface.get_width() > available_width:
+        # Estimate a smaller size based on width ratio
+        base_size = max(12, status_font.get_height())
+        target_size = max(16, int(base_size * available_width / max(1, status_surface.get_width())))
+        # Re-render with a smaller font
+        status_font = pygame.font.SysFont(None, target_size)
+        status_surface = status_font.render(status_text, True, COLOR_STATUS)
     screen.blit(status_surface, (H_PADDING, V_PADDING))
 
     grid_top = V_PADDING + STATUS_BAR_HEIGHT
@@ -377,10 +450,7 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
             if revealed[r][c]:
                 if mine_grid[r][c]:
                     pygame.draw.rect(screen, COLOR_TILE_MINE, rect)
-                    # draw mine circle
-                    center = rect.center
-                    radius = min(rect.width, rect.height) // 4
-                    pygame.draw.circle(screen, (30, 30, 30), center, radius)
+                    draw_bomb_icon(screen, rect)
                 else:
                     pygame.draw.rect(screen, COLOR_TILE_REVEALED, rect)
                     adj = adjacency_grid[r][c]
@@ -392,11 +462,7 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
             else:
                 pygame.draw.rect(screen, COLOR_TILE_HIDDEN, rect)
                 if flagged[r][c]:
-                    # draw a simple flag triangle
-                    p1 = (rect.left + rect.width // 3, rect.top + rect.height // 5)
-                    p2 = (rect.left + rect.width // 3, rect.bottom - rect.height // 5)
-                    p3 = (rect.right - rect.width // 5, rect.top + rect.height // 2)
-                    pygame.draw.polygon(screen, COLOR_FLAG, [p1, p2, p3])
+                    draw_watermelon_icon(screen, rect)
 
     # Border around grid
     grid_rect = pygame.Rect(H_PADDING, grid_top, COLUMNS * TILE_SIZE, ROWS * TILE_SIZE)
@@ -533,11 +599,11 @@ def main() -> None:
 
     # Optional pre-game menu if no CLI overrides were provided
     if (args.rows == 8 and args.cols == 6 and args.mines == 7 and args.tile_size == 48):
-        menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
+        menu_result = run_menu(ROWS, COLUMNS, NUM_MINES, TILE_SIZE)
         if menu_result is None:
             pygame.quit()
             sys.exit(0)
-        ROWS, COLUMNS, NUM_MINES = menu_result
+        ROWS, COLUMNS, NUM_MINES, TILE_SIZE = menu_result
 
         # Recompute dimensions with new selections
         WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
@@ -616,12 +682,12 @@ def main() -> None:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 # Return to menu, reconfigure grid, then reset game state
                 log_event("Key M pressed: open menu")
-                menu_result = run_menu(ROWS, COLUMNS, NUM_MINES)
+                menu_result = run_menu(ROWS, COLUMNS, NUM_MINES, TILE_SIZE)
                 if menu_result is None:
                     log_event("Menu returned None (Quit)")
                     pygame.quit()
                     return
-                ROWS, COLUMNS, NUM_MINES = menu_result
+                ROWS, COLUMNS, NUM_MINES, TILE_SIZE = menu_result
                 WINDOW_WIDTH = H_PADDING * 2 + COLUMNS * TILE_SIZE + GRID_LINE
                 WINDOW_HEIGHT = (
                     V_PADDING * 2
