@@ -112,7 +112,7 @@ def show_error_screen(summary: str) -> None:
 
 def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
     menu_width = 520
-    menu_height = 360
+    menu_height = 400
     pygame.display.set_caption("Minesweeper - Setup")
     screen = pygame.display.set_mode((menu_width, menu_height))
     clock = pygame.time.Clock()
@@ -183,7 +183,7 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         draw_button(quit_rect, "Quit")
 
         hint = font.render("Tip: adjust mines after grid", True, (150, 150, 150))
-        screen.blit(hint, (H_PADDING, menu_height - 85))
+        screen.blit(hint, (H_PADDING, menu_height - 120))
 
         pygame.display.flip()
 
