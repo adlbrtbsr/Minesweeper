@@ -20,6 +20,7 @@ STATUS_BAR_HEIGHT: int = 28
 FOOTER_BAR_HEIGHT: int = 28
 FPS: int = 60
 DEBUG: bool = False
+STATUS_FONT_BASE: int = 28
 
 # Window dimensions computed at runtime from current settings
 
@@ -425,12 +426,12 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
 
     # Render status text with dynamic downscaling to fit narrow windows
     available_width = max(50, (globals().get("WINDOW_WIDTH", 0) or screen.get_width()) - 2 * H_PADDING)
-    status_font = font
+    status_font = pygame.font.SysFont(None, STATUS_FONT_BASE)
     status_surface = status_font.render(status_text, True, COLOR_STATUS)
     if status_surface.get_width() > available_width:
         # Estimate a smaller size based on width ratio
-        base_size = max(10, status_font.get_height())
-        target_size = max(12, int(base_size * available_width / max(1, status_surface.get_width())))
+        base_size = max(12, status_font.get_height())
+        target_size = max(16, int(base_size * available_width / max(1, status_surface.get_width())))
         # Re-render with a smaller font
         status_font = pygame.font.SysFont(None, target_size)
         status_surface = status_font.render(status_text, True, COLOR_STATUS)
