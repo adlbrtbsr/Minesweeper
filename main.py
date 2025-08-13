@@ -112,7 +112,7 @@ def show_error_screen(summary: str) -> None:
 
 def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[int, int, int] | None:
     menu_width = 520
-    menu_height = 320
+    menu_height = 400
     pygame.display.set_caption("Minesweeper - Setup")
     screen = pygame.display.set_mode((menu_width, menu_height))
     clock = pygame.time.Clock()
@@ -136,8 +136,19 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         title = font.render("Choose grid and mines", True, COLOR_STATUS)
         screen.blit(title, (H_PADDING, V_PADDING))
 
+        # Preset buttons
+        preset_y = V_PADDING + 34
+        preset_w, preset_h, preset_gap = 140, 36, 12
+        beginner_rect = pygame.Rect(H_PADDING, preset_y, preset_w, preset_h)
+        intermediate_rect = pygame.Rect(H_PADDING + (preset_w + preset_gap), preset_y, preset_w, preset_h)
+        expert_rect = pygame.Rect(H_PADDING + 2 * (preset_w + preset_gap), preset_y, preset_w, preset_h)
+
+        draw_button(beginner_rect, "Beginner")
+        draw_button(intermediate_rect, "Intermediate")
+        draw_button(expert_rect, "Expert")
+
         # Layout values and +/- buttons
-        y0 = 80
+        y0 = 100
         row_label = font.render(f"Rows: {rows}", True, COLOR_STATUS)
         col_label = font.render(f"Cols: {cols}", True, COLOR_STATUS)
         max_mines = max(1, rows * cols - 1)
@@ -172,7 +183,7 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
         draw_button(quit_rect, "Quit")
 
         hint = font.render("Tip: adjust mines after grid", True, (150, 150, 150))
-        screen.blit(hint, (H_PADDING, menu_height - 110))
+        screen.blit(hint, (H_PADDING, menu_height - 120))
 
         pygame.display.flip()
 
@@ -181,6 +192,16 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int) -> tuple[
                 return None
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
+                # Preset selections
+                if beginner_rect.collidepoint(mx, my):
+                    rows, cols, mines = 9, 9, 10
+                    continue
+                elif intermediate_rect.collidepoint(mx, my):
+                    rows, cols, mines = 16, 16, 40
+                    continue
+                elif expert_rect.collidepoint(mx, my):
+                    rows, cols, mines = 16, 30, 99
+                    continue
                 if rows_minus.collidepoint(mx, my):
                     rows = max(1, rows - 1)
                 elif rows_plus.collidepoint(mx, my):
