@@ -68,7 +68,13 @@ Values are clamped to supported ranges by the game.
 
 ## Project structure
 
-- `main.py`: Game entry point and logic (rendering, input, board state)
+- `main.py`: Game entry point; orchestrates modules
+- `minesweeper/`:
+  - `config.py`: Global settings, colors, dimensions
+  - `utils.py`: Logging and error screen helpers
+  - `logic.py`: Mine grid generation, adjacency, reveal/chord logic
+  - `render.py`: Rendering helpers and `pixel_to_cell`
+  - `menu.py`: Setup menu and quit confirmation overlay
 - `requirements.txt`: Python dependencies
 - Logs: `run.log` (when `--debug`), `error.log` (created on unhandled errors)
 - `README.md`: This file
