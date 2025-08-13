@@ -22,6 +22,12 @@ FPS: int = 60
 DEBUG: bool = False
 STATUS_FONT_BASE: int = 28
 
+# Grid constraints
+MIN_ROWS: int = 6
+MAX_ROWS: int = 20
+MIN_COLS: int = 6
+MAX_COLS: int = 20
+
 # Window dimensions computed at runtime from current settings
 
 # Colors (green theme)
@@ -182,8 +188,8 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int, initial_t
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 28)
 
-    rows = max(1, initial_rows)
-    cols = max(1, initial_cols)
+    rows = max(MIN_ROWS, min(MAX_ROWS, initial_rows))
+    cols = max(MIN_COLS, min(MAX_COLS, initial_cols))
     mines = max(1, min(initial_mines, rows * cols - 1))
     tile = max(16, min(96, int(initial_tile)))
 
@@ -266,21 +272,30 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int, initial_t
                 # Preset selections
                 if beginner_rect.collidepoint(mx, my):
                     rows, cols, mines = 9, 9, 10
+                    rows = max(MIN_ROWS, min(MAX_ROWS, rows))
+                    cols = max(MIN_COLS, min(MAX_COLS, cols))
+                    mines = min(mines, max(1, rows * cols - 1))
                     continue
                 elif intermediate_rect.collidepoint(mx, my):
                     rows, cols, mines = 16, 16, 40
+                    rows = max(MIN_ROWS, min(MAX_ROWS, rows))
+                    cols = max(MIN_COLS, min(MAX_COLS, cols))
+                    mines = min(mines, max(1, rows * cols - 1))
                     continue
                 elif expert_rect.collidepoint(mx, my):
                     rows, cols, mines = 16, 30, 99
+                    rows = max(MIN_ROWS, min(MAX_ROWS, rows))
+                    cols = max(MIN_COLS, min(MAX_COLS, cols))
+                    mines = min(mines, max(1, rows * cols - 1))
                     continue
                 if rows_minus.collidepoint(mx, my):
-                    rows = max(1, rows - 1)
+                    rows = max(MIN_ROWS, rows - 1)
                 elif rows_plus.collidepoint(mx, my):
-                    rows = rows + 1
+                    rows = min(MAX_ROWS, rows + 1)
                 elif cols_minus.collidepoint(mx, my):
-                    cols = max(1, cols - 1)
+                    cols = max(MIN_COLS, cols - 1)
                 elif cols_plus.collidepoint(mx, my):
-                    cols = cols + 1
+                    cols = min(MAX_COLS, cols + 1)
                 elif mines_minus.collidepoint(mx, my):
                     mines = max(1, mines - 1)
                 elif mines_plus.collidepoint(mx, my):
@@ -290,6 +305,9 @@ def run_menu(initial_rows: int, initial_cols: int, initial_mines: int, initial_t
                 elif tile_plus.collidepoint(mx, my):
                     tile = min(96, tile + 4)
                 elif start_rect.collidepoint(mx, my):
+                    # Clamp before returning
+                    rows = max(MIN_ROWS, min(MAX_ROWS, rows))
+                    cols = max(MIN_COLS, min(MAX_COLS, cols))
                     mines = max(1, min(mines, rows * cols - 1))
                     return rows, cols, mines, tile
                 elif quit_rect.collidepoint(mx, my):
@@ -576,8 +594,8 @@ def main() -> None:
     args = parser.parse_args()
 
     # Update globals from CLI
-    ROWS = max(1, args.rows)
-    COLUMNS = max(1, args.cols)
+    ROWS = max(MIN_ROWS, min(MAX_ROWS, args.rows))
+    COLUMNS = max(MIN_COLS, min(MAX_COLS, args.cols))
     TILE_SIZE = max(12, args.tile_size)
     max_mines = ROWS * COLUMNS - 1
     NUM_MINES = max(1, min(args.mines, max_mines))
