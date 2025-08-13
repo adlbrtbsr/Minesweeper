@@ -24,27 +24,27 @@ STATUS_FONT_BASE: int = 28
 
 # Window dimensions computed at runtime from current settings
 
-# Colors
-COLOR_BG = (20, 20, 20)
-COLOR_GRID = (50, 50, 50)
-COLOR_TILE_HIDDEN = (110, 110, 110)
-COLOR_TILE_REVEALED = (190, 190, 190)
-COLOR_TILE_MINE = (220, 60, 60)
-COLOR_FLAG = (230, 60, 90)
-COLOR_TEXT = (20, 20, 20)
-COLOR_STATUS = (220, 220, 220)
-COLOR_WIN = (70, 200, 120)
-COLOR_LOSE = (220, 70, 70)
+# Colors (green theme)
+COLOR_BG = (12, 24, 16)            # deep green background
+COLOR_GRID = (34, 60, 38)          # muted green grid
+COLOR_TILE_HIDDEN = (56, 94, 66)   # dark green hidden tile
+COLOR_TILE_REVEALED = (168, 210, 176)  # light mint revealed tile
+COLOR_TILE_MINE = (200, 54, 54)    # keep danger red for mines
+COLOR_FLAG = (230, 60, 90)         # legacy (not used with watermelon icon)
+COLOR_TEXT = (18, 36, 24)          # dark greenish text fallback
+COLOR_STATUS = (210, 235, 215)     # mint status text
+COLOR_WIN = (70, 200, 120)         # green win
+COLOR_LOSE = (220, 70, 70)         # red lose
 
 NUMBER_COLORS = {
-    1: (25, 118, 210),   # blue
-    2: (56, 142, 60),    # green
-    3: (211, 47, 47),    # red
-    4: (123, 31, 162),   # purple
-    5: (255, 143, 0),    # orange
-    6: (0, 151, 167),    # teal
-    7: (97, 97, 97),     # gray
-    8: (0, 0, 0),        # black
+    1: (35, 180, 120),   # teal-green
+    2: (26, 160, 90),    # green
+    3: (220, 90, 90),    # soft red
+    4: (80, 170, 120),   # jade
+    5: (150, 210, 160),  # pale green
+    6: (60, 140, 100),   # deep green
+    7: (200, 220, 200),  # light gray-green
+    8: (18, 36, 24),     # dark text
 }
 
 # Board state containers
