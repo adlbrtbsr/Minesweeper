@@ -412,7 +412,17 @@ def draw_board(screen: pygame.Surface, font: pygame.font.Font, mine_grid: MineGr
     elif game_state == "won":
         status_text = "You won! Press R to restart, M for menu."
 
-    status_surface = font.render(status_text, True, COLOR_STATUS)
+    # Render status text with dynamic downscaling to fit narrow windows
+    available_width = max(50, (globals().get("WINDOW_WIDTH", 0) or screen.get_width()) - 2 * H_PADDING)
+    status_font = font
+    status_surface = status_font.render(status_text, True, COLOR_STATUS)
+    if status_surface.get_width() > available_width:
+        # Estimate a smaller size based on width ratio
+        base_size = max(10, status_font.get_height())
+        target_size = max(12, int(base_size * available_width / max(1, status_surface.get_width())))
+        # Re-render with a smaller font
+        status_font = pygame.font.SysFont(None, target_size)
+        status_surface = status_font.render(status_text, True, COLOR_STATUS)
     screen.blit(status_surface, (H_PADDING, V_PADDING))
 
     grid_top = V_PADDING + STATUS_BAR_HEIGHT
